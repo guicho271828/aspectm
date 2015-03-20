@@ -7,33 +7,56 @@
 (defpackage aspectm
   (:use :cl :alexandria :lisp-namespace)
   (:export
-   #:define-macroexpand-hook))
+   #:enable-macroexpand-hooks
+   #:disable-macroexpand-hooks
+   ;; around hooks
+   #:call-next-hook
+   #:add-macroexpand-hook
+   ;; standard hooks
+   #:define-macroexpand-hook
+   #:set-macroexpand-hook-for
+   #:remove-macroexpand-hook))
 (in-package :aspectm)
 
-;; blah blah blah.
+;;; enabling hooks
+
+(defvar *old-hook*)
+(defun enable-macroexpand-hooks ()
+  (psetf *macroexpand-hook* 'call-next-hook
+         *old-hook* *macroexpand-hook*))
+(defun disable-macroexpand-hooks ()
+  (assert (eq *macroexpand-hook* *old-hook*) nil
+          "*macroexpand-hook* is overwritten as ~a by some other program. stay alert!"
+          *macroexpand-hook*)
+  (setf *macroexpand-hook* *old-hook*))
+
+
+;;; around-hooks
+
+(defvar *macroexpand-around-hooks* '(funcall))
+(defun call-next-hook (macrofn form env)
+  (destructuring-bind (first-hook *macroexpand-around-hooks*)
+      *macroexpand-around-hooks*
+    (funcall first-hook macrofn form env)))
+
+
+
+;;; standard hooks
 
 (lispn:define-namespace macroexpand-before-hooks)
 (lispn:define-namespace macroexpand-after-hooks)
 
-(let (prev)
-  (defun enable-macroexpand-hooks ()
-    (psetf *macroexpand-hook* 'macroexpand-hooks-hook
-           prev *macroexpand-hook*))
-  (defun disable-macroexpand-hooks ()
-    (assert (eq *macroexpand-hook* prev) nil
-            "*macroexpand-hook* is overwritten as ~a by some other program. stay alert!"
-            *macroexpand-hook*)
-    (setf *macroexpand-hook* prev))
-  (defun macroexpand-hooks-hook (macrofn form env)
-    (when-let ((hooks (ignore-errors
-                        (symbol-macroexpand-before-hooks
-                         (car form)))))
-      (map nil (lambda (%) (funcall % form env)) hooks))
-    (funcall prev macrofn form env)
-    (when-let ((hooks (ignore-errors
-                        (symbol-macroexpand-after-hooks
-                         (car form)))))
-      (map nil (lambda (%) (funcall % form env)) hooks))))
+
+(defun macroexpand-standard-hook (macrofn form env)
+  (when-let ((hooks (ignore-errors
+                      (symbol-macroexpand-before-hooks
+                       (car form)))))
+    (map nil (lambda (%) (funcall % form env)) hooks))
+  (call-next-hook macrofn form env)
+  (when-let ((hooks (ignore-errors
+                      (symbol-macroexpand-after-hooks
+                       (car form)))))
+    (map nil (lambda (%) (funcall % form env)) hooks)))
 
 (defun set-macroexpand-hook-for (name fn &key (when :before) (tag (gensym)))
   (assert (member when '(:before :after)))
