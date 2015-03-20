@@ -13,11 +13,10 @@
 ;; blah blah blah.
 
 (lispn:define-namespace macroexpand-before-hooks)
-(lispn:define-namespace macroexpand-around-hooks)
 (lispn:define-namespace macroexpand-after-hooks)
 
 (let (prev)
-  (defun add-macroexpand-hooks ()
+  (defun enable-macroexpand-hooks ()
     (psetf *macroexpand-hook* 'macroexpand-hooks-hook
            prev *macroexpand-hook*))
   (defun disable-macroexpand-hooks ()
@@ -26,21 +25,43 @@
             *macroexpand-hook*)
     (setf *macroexpand-hook* prev))
   (defun macroexpand-hooks-hook (macrofn form env)
-    (when-let ((hook (ignore-errors
-                       (symbol-macroexpand-before-hooks
-                        (car form)))))
-      (funcall hook form env))
+    (when-let ((hooks (ignore-errors
+                        (symbol-macroexpand-before-hooks
+                         (car form)))))
+      (map nil (lambda (%) (funcall % form env)) hooks))
     (funcall prev macrofn form env)
-    (when-let ((hook (ignore-errors
-                       (symbol-macroexpand-after-hooks
-                        (car form)))))
-      (funcall hook form env))))
+    (when-let ((hooks (ignore-errors
+                        (symbol-macroexpand-after-hooks
+                         (car form)))))
+      (map nil (lambda (%) (funcall % form env)) hooks))))
 
-(defmacro define-macroexpand-hook (name when args &body body)
+(defun set-macroexpand-hook-for (name fn &key (when :before) (tag (gensym)))
   (assert (member when '(:before :after)))
-  `(setf (,(if (eq :before when)
-               'symbol-macroexpand-before-hooks
-               'symbol-macroexpand-after-hooks) ',name)
-         (lambda ,args ,@body)))
+  (if (eq :before when)
+      (progn
+        (unless (macroexpand-before-hooks-boundp name)
+          (setf (macroexpand-before-hooks-boundp name) nil))
+        (pushnew (cons tag fn)
+                 (macroexpand-before-hooks-boundp name)
+                 :key #'car))
+      (progn
+        (unless (macroexpand-after-hooks-boundp name)
+          (setf (macroexpand-after-hooks-boundp name) nil))
+        (pushnew (cons tag fn)
+                 (symbol-macroexpand-after-hooks name)
+                 :key #'car)))
+  tag)
+
+(defmacro define-macroexpand-hook (name (&key (when :before) (tag (gensym))) args &body body)
+  `(set-macroexpand-hook-for
+    ',name
+    (lambda ,args ,@body)
+    :when ,when :tag ',tag))
+
+(defun remove-macroexpand-hook (name when tag)
+  (assert (member when '(:before :after)))
+  (if (eq :before when)
+      (removef (symbol-macroexpand-before-hooks name) tag :key #'car)
+      (removef (symbol-macroexpand-after-hooks name) tag :key #'car)))
 
 
