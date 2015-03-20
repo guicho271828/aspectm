@@ -1,7 +1,58 @@
 
-* Aspectm 
+* AspectM 
 
-** Usage
+=*macroexpand-hook*= in Common Lisp is quite hard to maintain correctly,
+since it is global and anyone can modify it. This library provides a set of
+"acceptable" way of modifying the hook.
+The implementation is carefully designed so that every temporary data are
+lexically stored so that it cannot be modified by the external programs.
+
+AspectM provides CLOS-like /before/ /after/ /around/ hooks for
+macroexpansion. /before/ and /after/ hooks are not able to modify the main
+expansion result: they just appends the side effects before/after the main
+expansion, e.g., exporting symbols, proclaim =inline= or storing the form
+as a workaround for a system that does not provide
+=function-lambda-expression=.
+
+Every /around/ hooks MUST call the next hook by calling =(call-next-hook)=,
+or it signals an error. This ensures that all hooks are called, as well as
+all calls to the hooks are properly nested.
+
+To activate this library, run these snippets:
+
+#+BEGIN_SRC lisp
+(enable-macroexpand-hooks)
+(add-around-hook 'standard-hook)
+#+END_SRC
+
+=enable-macroexpand-hooks= sets =macroexpand-hooks-hook= to
+=*macroexpand-hook*=. To restore the previous value of
+=*macroexpand-hook*=, call =(disable-macroexpand-hooks)=. If the value of
+=*macroexpand-hook*= has been changed from what is expected,
+=macroexpand-hooks-hook=, then it signals an error, since it means that
+/someone/ not following the protocol in this library has overwritten
+the value.
+
+=enable-macroexpand-hooks=, however, does not affect the expansion method
+by itself: Instead, the second line enables an /around/ hook called
+=standard-hook=, which implements the /before/ and /after/ hooks.
+To disable an /around/ hook, e.g., =(remove-macroexpand-hook
+'standard-hook)=.
+
+/before/ and /after/ hooks are regular macro-functions of two arguments
+(the form and environment), and are assigned for each macro. For example,
+
+#+BEGIN_SRC lisp
+
+(defmacro force-inline (&whole form name args &body body)
+  (assert (eq 'defun (car form)))
+  `(declare (inline ,name)))
+
+(set-standard-hook 'defun 'force-inline :before)
+
+#+END_SRC
+
+It can be removed by =remove-macroexpand-hook=.
 
 ** Dependencies
 
@@ -13,9 +64,6 @@ Also, it depends on the following libraries:
 
 + alexandria by  ::
     Alexandria is a collection of portable public domain utilities.
-
-+ trivia by Masataro Asai ::
-    NON-optimized pattern matcher compatible with OPTIMA, with extensible optimizer interface and clean codebase
 
 + lisp-namespace by Masataro Asai ::
     Provides LISP-N --- extensible namespaces in Common Lisp.

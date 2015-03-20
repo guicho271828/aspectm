@@ -1,0 +1,81 @@
+# In order to prove the safety of this library, I chose to explain the inner
+# working of the code step by step, with some usages. Thus, this README is
+# mostly for the people who understand the danger of using
+# =*macroexpand-hook*= and the importance of locality of a variable: In other
+# words, /hiding/ the variable.
+
+
+# #+BEGIN_SRC lisp
+# (defun disable-macroexpand-hooks ()
+#   (assert (eq *macroexpand-hook* *old-hook*) nil
+#           "*macroexpand-hook* is overwritten as ~a by someone. stay alert!"
+#           *macroexpand-hook*)
+#   (setf *macroexpand-hook* *old-hook*))
+# #+END_SRC
+
+# Now the hook set by =enable-macroexpand-hooks= is =macroexpand-hooks-hook=.
+# It calls the first element of a list stored in an internally defined
+# variable, whose value is initially =(funcall-as-hook)= (described later).
+# 
+# #+BEGIN_SRC lisp
+# (let ((macroexpand-around-hooks '(funcall-as-hook)))
+#    ...
+# #+END_SRC
+# 
+# No one can modify this value, except =push-macroexpand-hook= and
+# =pop-macroexpand-hook=. =push...= takes a name of normal macroexpand-hook
+# compatible function. However, there is a restriction in its behavior.
+# =pop...= has a safeguard, which ensures that there is at least 1 element,
+# =funcall-as-hook=, in the list.
+# 
+# #+BEGIN_SRC lisp
+# (defun push-macroexpand-hook (fname)
+#   (assert (symbolp fname))
+#   (push fname macroexpand-around-hooks))
+# (defun pop-macroexpand-hook ()
+#   (pop macroexpand-around-hooks)
+#   (unless macroexpand-around-hooks
+#     (warn "Popping the hooks resulted in NIL. Restoring '(funcall-as-hook)")
+#     (setf macroexpand-around-hooks '(funcall-as-hook))))
+# #+END_SRC
+
+
+# Now the definition of =funcall-as-hook= is shown below. It is functionally
+# equivalent to =funcall= except that it signals a condition =in-next-hook=.
+# =in-next-hook= is an *internal* symbol and thus discourage the user to
+# handle it manually. (It should be considered as an *abuse* of
+# the protocol.) =in-next-hook= plays a key role in making sure all elements
+# of =macroexpand-around-hooks= are called, without overriding.
+# 
+# #+BEGIN_SRC lisp
+# (defun funcall-as-hook (macrofn form env)
+#   (restart-case
+#       (signal 'in-next-hook)
+#     (continue ()))
+#   (funcall macrofn form env))
+# #+END_SRC
+# 
+# Back to the top, now, =*macroexpand-hook*= is =macroexpand-hooks-hook=. It
+# is a normal hook function that calls =call-next-hook=. =call-next-hook= is
+# a nullary function.
+# 
+# #+BEGIN_SRC lisp
+# (defun macroexpand-hooks-hook (macrofn form env)
+#   (declare (special macrofn form env))
+#   (call-next-hook))
+# (defun call-next-hook ()
+#   (declare (special macrofn form env))
+#   (restart-case
+#       (signal 'in-next-hook)
+#     (continue ()))
+#   (destructuring-bind (first-hook macroexpand-around-hooks) macroexpand-around-hooks
+#     (declare (special macroexpand-around-hooks))
+#     (let (next-hook-called)
+#       (handler-bind ((in-next-hook (lambda (c)
+#                                      (setf next-hook-called t)
+#                                      (continue c))))
+#         (funcall first-hook macrofn form env))
+#       (unless next-hook-called
+#         (error "~a is not calling the next hook through call-next-hook!" first-hook)))))
+# #+END_SRC
+

@@ -20,7 +20,7 @@
   :author "Masataro Asai"
   :mailto "guicho2.71828@gmail.com"
   :license "LLGPL"
-  :depends-on (:alexandria :trivia :lisp-namespace)
+  :depends-on (:alexandria  :lisp-namespace)
   :components ((:module "src"
                 :components
                 ((:file "package"))))

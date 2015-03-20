@@ -8,7 +8,7 @@
   (:use :cl
         :aspectm
         :fiveam
-        :alexandria :trivia :lisp-namespace))
+        :alexandria  :lisp-namespace))
 (in-package :aspectm.test)
 
 
