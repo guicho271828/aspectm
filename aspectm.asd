@@ -4,6 +4,8 @@
 |#
 
 #|
+  aspect-oriented macroexpand hooks for common lisp
+
   Author: Masataro Asai (guicho2.71828@gmail.com)
 |#
 
@@ -24,5 +26,5 @@
   :components ((:module "src"
                 :components
                 ((:file "package"))))
-  :description ""
-  :in-order-to ((test-op (load-op aspectm.test))))
+  :description "aspect-oriented macroexpand hooks for common lisp"
+  :in-order-to ((test-op (load-op :aspectm.test))))

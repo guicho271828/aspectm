@@ -1,5 +1,5 @@
 
-* AspectM 
+* Aspectm  - aspect-oriented macroexpand hooks for common lisp
 
 =*macroexpand-hook*= in Common Lisp is quite hard to maintain correctly,
 since it is global and anyone can modify it. This library provides a set of
