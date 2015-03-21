@@ -25,19 +25,10 @@ To activate this library, run these snippets:
 (add-around-hook 'standard-hook)
 #+END_SRC
 
-=enable-macroexpand-hooks= sets =macroexpand-hooks-hook= to
-=*macroexpand-hook*=. To restore the previous value of
-=*macroexpand-hook*=, call =(disable-macroexpand-hooks)=. If the value of
-=*macroexpand-hook*= has been changed from what is expected,
-=macroexpand-hooks-hook=, then it signals an error, since it means that
-/someone/ not following the protocol in this library has overwritten
-the value.
-
-=enable-macroexpand-hooks=, however, does not affect the expansion method
-by itself: Instead, the second line enables an /around/ hook called
-=standard-hook=, which implements the /before/ and /after/ hooks.
-To disable an /around/ hook, e.g., =(remove-macroexpand-hook
-'standard-hook)=.
+=enable-macroexpand-hooks= just set up the system for around hook, and it
+does not add any hooks by itself. Instead, the second line adds an /around/
+hook called =standard-hook=, which implements the /before/ and
+/after/ hooks.
 
 /before/ and /after/ hooks are regular macro-functions of two arguments
 (the form and environment), and are assigned for each macro. For example,
@@ -52,7 +43,23 @@ To disable an /around/ hook, e.g., =(remove-macroexpand-hook
 
 #+END_SRC
 
-It can be removed by =remove-macroexpand-hook=.
+
+** Disabling the Hooks
+
+=enable-macroexpand-hooks= sets =macroexpand-hooks-hook= to
+=*macroexpand-hook*=. To restore the previous value of
+=*macroexpand-hook*=, call =(disable-macroexpand-hooks)=. If the value of
+=*macroexpand-hook*= has been changed from what is expected,
+=macroexpand-hooks-hook=, then it signals an error, since it means that
+/someone/ not following the protocol in this library has overwritten
+the value.
+
+To remove an /around/ hook, =(remove-macroexpand-hook <hook>)=. (for
+standard hook, =(remove-macroexpand-hook 'standard-hook)=.)
+
+To remove a before / after hook, use =(remove-macroexpand-hook macro hook
+method)=.  (for the above example hook, =(remove-macroexpand-hook 'defun
+'force-inline :before)=.)
 
 ** Dependencies
 
