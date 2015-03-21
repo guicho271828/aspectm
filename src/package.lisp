@@ -36,30 +36,32 @@
 
 (define-condition in-next-hook () ())
 
-(let ((*around-hooks* '(funcall-as-hook)))
+;; none of these variables should be external
+
+(let ((around-hooks '(funcall-as-hook)))
   (defun add-around-hook (fname)
     (assert (symbolp fname))
-    (push fname *around-hooks*))
+    (push fname around-hooks))
   (defun remove-around-hook (fname)
-    (removef fname *around-hooks*)
-    (unless *around-hooks*
+    (removef fname around-hooks)
+    (unless around-hooks
       (warn "Popping the hooks resulted in NIL. Restoring '(funcall-as-hook)")
-      (setf *around-hooks* '(funcall-as-hook))))
-  (defun macroexpand-hooks-hook (*macrofn* *form* *env*)
-    (declare (special *macrofn* *form* *env*))
+      (setf around-hooks '(funcall-as-hook))))
+  (defun macroexpand-hooks-hook (macrofn form env)
+    (declare (special macrofn form env))
     (call-next-hook))
   (defun call-next-hook ()
-    (declare (special *macrofn* *form* *env*))
+    (declare (special macrofn form env))
     (restart-case
         (signal 'in-next-hook)
       (continue ()))
-    (destructuring-bind (first-hook *around-hooks*) *around-hooks*
-      (declare (special *around-hooks*))
+    (destructuring-bind (first-hook around-hooks) around-hooks
+      (declare (special around-hooks))
       (let (next-hook-called)
         (handler-bind ((in-next-hook (lambda (c)
                                        (setf next-hook-called t)
                                        (continue c))))
-          (funcall first-hook *macrofn* *form* *env*))
+          (funcall first-hook macrofn form env))
         (unless next-hook-called
           (error "~a is not calling the next hook through call-next-hook!" first-hook))))))
 
@@ -87,9 +89,9 @@
                             (car form)))))
          (mapcar (lambda (%) (funcall % form env)) hooks))))
 
-(defun set-standard-hook (name hook &optional (when :before))
-  (assert (member when '(:before :after)))
-  (if (eq :before when)
+(defun set-standard-hook (name hook &optional (method :before))
+  (assert (member method '(:before :after)))
+  (if (eq :before method)
       (progn
         (unless (before-hooks-boundp name)
           (setf (before-hooks-boundp name) nil))
@@ -100,14 +102,15 @@
         (pushnew hook (symbol-after-hooks name))))
   tag)
 
-(defmacro define-standard-hook ((name hook &optional (when :before)) args &body body)
-  `(progn
-     (defmacro ,hook ,args ,@body)
-     (set-hook-for ',name ',hook ,when)))
+(defmacro define-standard-hook ((name &optional hook-name (method :before)) args &body body)
+  (let ((hook-name (or hook-name (gensym "HOOK"))))
+    `(progn
+       (defmacro ,hook-name ,args ,@body)
+       (set-hook-for ',name ',hook-name ,method))))
 
-(defun remove-standard-hook (name hook when)
-  (assert (member when '(:before :after)))
-  (if (eq :before when)
+(defun remove-standard-hook (name hook method)
+  (assert (member method '(:before :after)))
+  (if (eq :before method)
       (removef hook (symbol-before-hooks name))
       (removef hook (symbol-after-hooks name))))
 
