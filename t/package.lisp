@@ -73,3 +73,20 @@
       (remove-standard-hook 'defun 'store-name :before))))
 
 
+
+(test (define-stdhook :depends-on stdhook-setup)
+  (with-fixture mhook ()
+    (with-fixture std ()
+      (unwind-protect 
+          (finishes
+            (define-standard-hook (defun store-name2) (&whole form name args &body body)
+              (declare (ignorable args body))
+              (assert (eq (first form) 'defun))
+              (push name *names*)
+              nil)
+            (let (*names*)
+              (eval '(defun myfunc ()))
+              (is (member 'myfunc *names*))))
+        (remove-standard-hook 'defun 'store-name :before)))))
+
+

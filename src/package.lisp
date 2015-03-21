@@ -118,7 +118,7 @@
   (let ((hook-name (or hook-name (gensym "HOOK"))))
     `(progn
        (defmacro ,hook-name ,args ,@body)
-       (set-hook-for ',name ',hook-name ,method))))
+       (set-standard-hook ',name ',hook-name ,method))))
 
 (defun remove-standard-hook (name hook method)
   (assert (member method '(:before :after)))
