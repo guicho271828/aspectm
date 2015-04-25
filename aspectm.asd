@@ -26,5 +26,5 @@
   :components ((:module "src"
                 :components
                 ((:file "package"))))
-  :description "aspect-oriented macroexpand hooks for common lisp"
+  :description "aspect-oriented macroexpand hooks"
   :in-order-to ((test-op (load-op :aspectm.test))))

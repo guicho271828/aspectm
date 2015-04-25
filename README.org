@@ -1,8 +1,8 @@
 
-* Aspectm  - aspect-oriented macroexpand hooks for common lisp
+* Aspectm  - aspect-oriented macroexpand hooks
 
 =*macroexpand-hook*= in Common Lisp is quite hard to maintain correctly,
-since it is global and anyone can modify it. This library provides a set of
+since it is global and anyone can modify its value. This library provides a set of
 "acceptable" way of modifying the hook. The implementation is carefully
 written to provide a correct encapsulation.
 
