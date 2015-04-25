@@ -23,7 +23,7 @@ macroexpansion, and I plan to implement useful hooks based upon this system.
   `(defun my-+ (x y) (+ x y)))
 
 (remove-standard-hook 'defun 'force-inline :before)
-
+;; there are also with-standard-hook
 #+END_SRC
 
 ** Details
