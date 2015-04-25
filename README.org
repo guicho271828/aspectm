@@ -13,14 +13,17 @@ every /around/ hooks MUST call the next hook by calling =(call-next-hook)=,
 or it signals an compile-time error. This ensures that all hooks are called
 in the right order without skipping/overriding.
 
-Upon this layered /around/ hooks system, AspectM implements a set of hooks
+# Upon this layered /around/ hooks system
+Upon this system, AspectM implements a set of hooks
 called /standard/ hooks, which consist of /before/ and /after/ hooks.
-A before/around hook can be associated with a macro function,
-and just like /before/ and /after/ methods in CLOS, it
-prepends/appends forms to the main form returned by the macro.
-Thus, they are not able to modify the main
-expansion result.
+# A before/around hook can be associated with a macro function,
+# and just like /before/ and /after/ methods in CLOS, it
+A before/around hook is able to:
 
++ see the arguments of the macro
++ prepend/append forms to the main form returned by the macro
+
+Thus, they are not able to modify the main expansion result.
 Expected usecases are: exporting symbols, proclaim =inline=, or storing the
 form as a workaround for a system that does not provide
 =function-lambda-expression=.
