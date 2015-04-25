@@ -57,6 +57,7 @@
   (defun call-next-hook ()
     (declare (special macrofn form env around-hooks))
     (restart-case
+        ;; in the toplevel, the condition is simply ignored
         (signal 'in-next-hook)
       (continue ()))
     (if around-hooks

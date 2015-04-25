@@ -6,59 +6,50 @@ since it is global and anyone can modify it. This library provides a set of
 "acceptable" way of modifying the hook. The implementation is carefully
 written to provide a correct encapsulation.
 
-AspectM provides CLOS-like /before/, /after/, /around/ hooks for
-macroexpansion. /before/ and /after/ hooks are not able to modify the main
-expansion result: they just appends the side effects before/after the main
-expansion, e.g., exporting symbols, proclaim =inline= or storing the form
-as a workaround for a system that does not provide
-=function-lambda-expression=.
+AspectM provides CLOS-like /around/ hooks for
+macroexpansion. /around/ hooks are nested, just like nesting
+=*macroexpand-hook*= funtions. Notable difference is that 
+every /around/ hooks MUST call the next hook by calling =(call-next-hook)=,
+or it signals an compile-time error. This ensures that all hooks are called
+in the right order without skipping/overriding.
 
-Every /around/ hooks MUST call the next hook by calling =(call-next-hook)=,
-or it signals an error. This ensures that all hooks are called, as well as
-all calls to the hooks are properly nested.
+Upon this layered /around/ hooks system, AspectM implements a set of hooks
+called /standard/ hooks, which consist of /before/ and /after/ hooks.
+A before/around hook can be associated with a macro function,
+and just like /before/ and /after/ methods in CLOS, it
+prepends/appends forms to the main form returned by the macro.
+Thus, they are not able to modify the main
+expansion result.
+
+Expected usecases are: exporting symbols, proclaim =inline=, or storing the
+form as a workaround for a system that does not provide
+=function-lambda-expression=.
 
 To activate this library, run these snippets:
 
 #+BEGIN_SRC lisp
-(enable-macroexpand-hooks)
-(add-around-hook 'standard-hook)
+(enable-macroexpand-hooks)       ; enable around hooks, then
+(add-around-hook 'standard-hook) ; enable standard hook
 #+END_SRC
 
-=enable-macroexpand-hooks= just set up the system for around hook, and it
-does not add any hooks by itself. Instead, the second line adds an /around/
-hook called =standard-hook=, which implements the /before/ and
-/after/ hooks.
+Unfortunately, =load= and =compile= does *not* rebind =*macroexpand-hook*=
+as they do for =*readtable*= and =*package*=. You are warned.
+
+** Setting a Standard Hook
 
 /before/ and /after/ hooks are regular macro-functions of two arguments
-(the form and environment), and are assigned for each macro. For example,
+(the form and environment). The example code below automatically adds
+=inline= proclaration to all =defun=-ed function.
 
 #+BEGIN_SRC lisp
 
 (defmacro force-inline (&whole form name args &body body)
   (assert (eq 'defun (car form)))
-  `(declare (inline ,name)))
+  `(declaim (inline ,name)))
 
 (set-standard-hook 'defun 'force-inline :before)
 
 #+END_SRC
-
-
-** Disabling the Hooks
-
-=enable-macroexpand-hooks= sets =macroexpand-hooks-hook= to
-=*macroexpand-hook*=. To restore the previous value of
-=*macroexpand-hook*=, call =(disable-macroexpand-hooks)=. If the value of
-=*macroexpand-hook*= has been changed from what is expected,
-=macroexpand-hooks-hook=, then it signals an error, since it means that
-/someone/ not following the protocol in this library has overwritten
-the value.
-
-To remove an /around/ hook, =(remove-macroexpand-hook <hook>)=. (for
-standard hook, =(remove-macroexpand-hook 'standard-hook)=.)
-
-To remove a before / after hook, use =(remove-macroexpand-hook macro hook
-method)=.  (for the above example hook, =(remove-macroexpand-hook 'defun
-'force-inline :before)=.)
 
 ** Dependencies
 
@@ -73,15 +64,6 @@ Also, it depends on the following libraries:
 
 + lisp-namespace by Masataro Asai ::
     Provides LISP-N --- extensible namespaces in Common Lisp.
-
-
-
-** Installation
-
-
-** Author
-
-+ Masataro Asai (guicho2.71828@gmail.com)
 
 * Copyright
 
