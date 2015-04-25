@@ -3,11 +3,10 @@
 
 =*macroexpand-hook*= in Common Lisp is quite hard to maintain correctly,
 since it is global and anyone can modify it. This library provides a set of
-"acceptable" way of modifying the hook.
-The implementation is carefully designed so that every temporary data are
-lexically stored so that it cannot be modified by the external programs.
+"acceptable" way of modifying the hook. The implementation is carefully
+written to provide a correct encapsulation.
 
-AspectM provides CLOS-like /before/ /after/ /around/ hooks for
+AspectM provides CLOS-like /before/, /after/, /around/ hooks for
 macroexpansion. /before/ and /after/ hooks are not able to modify the main
 expansion result: they just appends the side effects before/after the main
 expansion, e.g., exporting symbols, proclaim =inline= or storing the form
