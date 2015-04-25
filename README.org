@@ -13,6 +13,7 @@ macroexpansion, and I plan to implement useful hooks based upon this system.
 (enable-macroexpand-hooks)       ; enable around hooks, then
 (add-around-hook 'standard-hook) ; enable standard (=before+around) hook
 
+;; expanded before the main expansion, then prepended to the main expansion result
 (defmacro force-inline (&whole form name args &body body)
   (assert (eq 'defun (car form)))
   `(declaim (inline ,name)))
@@ -26,7 +27,26 @@ macroexpansion, and I plan to implement useful hooks based upon this system.
 ;; there are also with-standard-hook
 #+END_SRC
 
-** Details
+Note: *ABOVE CODE DOES NOT WORK.*
+
+The scope of a hook is file local.
+This is achieved not by binding something, so it required a bit of hack.
+
+
+
+
+# Sounds simple, but actually not. The main problem is about the invalidation
+# of the compilation results, and the scope of the hook.  What happends if we put a hook
+# =set-standard-hook= in file A, which is loaded before a file B that
+# contains =my-+= above, but the file B is already compiled? What if a user
+# forgot adding =remove-standard-hook= in the end of file B? It affects every
+# single file loaded after it. Well, this might be a matter of ASDF system
+# definition, but there are various similar effects.
+# 
+# The scope of a hook is package. Each enable-macroexpand-hooks remembers its 
+
+
+* Details
 
 /around/ hooks are always nested, just like nesting
 =*macroexpand-hook*= funtions. Notable difference is that 
