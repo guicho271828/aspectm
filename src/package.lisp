@@ -18,7 +18,8 @@
    #:standard-hook
    #:set-standard-hook
    #:define-standard-hook
-   #:remove-standard-hook))
+   #:remove-standard-hook
+   #:around-hooks))
 (in-package :aspectm)
 
 ;;; enabling hooks
@@ -43,26 +44,28 @@
 
 ;; none of these variables should be external
 
-(let (around-hooks)
+(let (ahooks)
   (defun add-around-hook (fname)
     (assert (symbolp fname))
-    (push fname around-hooks))
+    (push fname ahooks))
   (defun remove-around-hook (fname)
-    (removef around-hooks fname))
+    (removef ahooks fname))
+  (defun around-hooks ()
+    (copy-list ahooks))
   (defun macroexpand-hooks-hook (macrofn form env)
     (declare (special macrofn form env))
-    (let ((around-hooks around-hooks))
-      (declare (special around-hooks))
+    (let ((ahooks ahooks))
+      (declare (special ahooks))
       (call-next-hook)))
   (defun call-next-hook ()
-    (declare (special macrofn form env around-hooks))
+    (declare (special macrofn form env ahooks))
     (restart-case
         ;; in the toplevel, the condition is simply ignored
         (signal 'in-next-hook)
       (continue ()))
-    (if around-hooks
-        (destructuring-bind (first-hook . around-hooks) around-hooks
-          (declare (special around-hooks))
+    (if ahooks
+        (destructuring-bind (first-hook . ahooks) ahooks
+          (declare (special ahooks))
           (let (next-hook-called)
             (prog1
               (handler-bind ((in-next-hook (lambda (c)
