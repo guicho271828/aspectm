@@ -6,8 +6,29 @@ since it is global and anyone can modify it. This library provides a set of
 "acceptable" way of modifying the hook. The implementation is carefully
 written to provide a correct encapsulation.
 
-AspectM provides CLOS-like /around/ hooks for
-macroexpansion. /around/ hooks are nested, just like nesting
+AspectM provides CLOS-like /around/, /before/, /around/ hooks for
+macroexpansion.
+
+#+BEGIN_SRC lisp
+(enable-macroexpand-hooks)       ; enable around hooks, then
+(add-around-hook 'standard-hook) ; enable standard (=before+around) hook
+
+(defmacro force-inline (&whole form name args &body body)
+  (assert (eq 'defun (car form)))
+  `(declaim (inline ,name)))
+
+(set-standard-hook 'defun 'force-inline :before)
+
+(macroexpand
+  `(defun my-+ (x y) (+ x y)))
+
+(remove-standard-hook 'defun 'force-inline :before)
+
+#+END_SRC
+
+** Details
+
+/around/ hooks are always nested, just like nesting
 =*macroexpand-hook*= funtions. Notable difference is that 
 every /around/ hooks MUST call the next hook by calling =(call-next-hook)=,
 or it signals an compile-time error. This ensures that all hooks are called
