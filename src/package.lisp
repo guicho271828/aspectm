@@ -19,7 +19,8 @@
    #:set-standard-hook
    #:define-standard-hook
    #:remove-standard-hook
-   #:around-hooks))
+   #:around-hooks
+   #:with-standard-hook))
 (in-package :aspectm)
 
 ;;; enabling hooks
@@ -130,4 +131,10 @@
       (removef (symbol-before-hooks name) hook)
       (removef (symbol-after-hooks name) hook)))
 
+(defmacro with-standard-hook (name hook method &body body)
+  (unwind-protect
+      (progn
+        (set-standard-hook name hook method)
+        (macroexpand `(progn ,@body)))
+    (remove-standard-hook name hook method)))
 
