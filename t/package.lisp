@@ -68,9 +68,10 @@
     (with-fixture std ()
       (set-standard-hook 'defun 'store-name :before)
       (let (*names*)
-        (finishes (eval '(defun myfunc ())))
+        (finishes (macroexpand '(defun myfunc ())))
         (is (member 'myfunc *names*)))
-      (remove-standard-hook 'defun 'store-name :before))))
+      (remove-standard-hook 'defun 'store-name :before)
+      (is-false (member 'store-name (aspectm::symbol-before-hooks 'defun))))))
 
 
 
@@ -87,6 +88,7 @@
             (let (*names*)
               (eval '(defun myfunc ()))
               (is (member 'myfunc *names*))))
-        (remove-standard-hook 'defun 'store-name :before)))))
+        (remove-standard-hook 'defun 'store-name2 :before)
+        (is-false (member 'store-name2 (aspectm::symbol-before-hooks 'defun)))))))
 
 
