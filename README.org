@@ -7,7 +7,7 @@ since it is global and anyone can modify it. This library provides a set of
 written to provide a correct encapsulation.
 
 AspectM provides CLOS-like /around/, /before/, /around/ hooks for
-macroexpansion.
+macroexpansion, and I plan to implement useful hooks based upon this system.
 
 #+BEGIN_SRC lisp
 (enable-macroexpand-hooks)       ; enable around hooks, then
