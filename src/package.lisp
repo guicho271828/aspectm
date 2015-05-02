@@ -26,16 +26,22 @@
 ;;; enabling hooks
 
 (defvar *old-hook*)
-(defun enable-macroexpand-hooks ()
-  (psetf *macroexpand-hook* 'macroexpand-hooks-hook
-         *old-hook* *macroexpand-hook*))
+(defvar *pathnames* (make-hash-table :test 'equal)
+  "hash-table of pathnames as keys and booleans as values. hmmmmm")
+(defmacro enable-macroexpand-hooks ()
+  `(eval-when (:compile-toplevel :execute)
+     (psetf *macroexpand-hook* 'macroexpand-hooks-hook
+            *old-hook* *macroexpand-hook*
+            (gethash *compile-file-pathname* *pathnames*) t)))
 (defun disable-macroexpand-hooks ()
-  (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
-          "*macroexpand-hook* is overwritten from ~a to ~a by some other program. stay alert!"
-          'macroexpand-hooks-hook
-          *macroexpand-hook*)
-  (setf *macroexpand-hook* *old-hook*)
-  (makunbound '*old-hook*))
+  `(eval-when (:compile-toplevel :execute)
+     (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
+             "*macroexpand-hook* is overwritten from ~a to ~a by some other program. stay alert!"
+             'macroexpand-hooks-hook
+             *macroexpand-hook*)
+     (setf *macroexpand-hook* *old-hook*
+           (gethash *compile-file-pathname* *pathnames*) nil)
+     (makunbound '*old-hook*)))
 
 
 ;;; around-hooks
