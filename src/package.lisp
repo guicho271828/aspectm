@@ -79,6 +79,9 @@
   (defun remove-around-hook (fname)
     (with-lock-held (*aspectm-lock*)
       (removef ahooks fname)))
+  (defun clear-around-hooks (fname)
+    (with-lock-held (*aspectm-lock*)
+      (setf ahooks nil)))
   (defun around-hooks ()
     "Returns a copy of around-hooks as a flesh list. It is safe to modify this value."
     (copy-list ahooks))
