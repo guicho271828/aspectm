@@ -60,17 +60,19 @@
 (defmacro store-name (&whole form name args &body body)
   (declare (ignorable args body))
   (assert (eq (first form) 'defun))
-  (push name *names*)
-  nil)
+  `(push ',name *names*))
 
 (test (stdhook :depends-on stdhook-setup)
   (with-fixture mhook ()
     (with-fixture std ()
       (set-standard-hook 'defun 'store-name :before)
       (let (*names*)
+        (finishes (macroexpand '(defun myfunc ())))
+        (is-false (member 'myfunc *names*))
         (finishes (eval '(defun myfunc ())))
-        (is (member 'myfunc *names*)))
-      (remove-standard-hook 'defun 'store-name :before))))
+        (is-true (member 'myfunc *names*)))
+      (remove-standard-hook 'defun 'store-name :before)
+      (is-false (member 'store-name (aspectm::symbol-before-hooks 'defun))))))
 
 
 
@@ -82,11 +84,13 @@
             (define-standard-hook (defun store-name2) (&whole form name args &body body)
               (declare (ignorable args body))
               (assert (eq (first form) 'defun))
-              (push name *names*)
-              nil)
+              `(push ',name *names*))
             (let (*names*)
-              (eval '(defun myfunc ()))
-              (is (member 'myfunc *names*))))
-        (remove-standard-hook 'defun 'store-name :before)))))
+              (finishes (macroexpand '(defun myfunc2 ())))
+              (is-false (member 'myfunc2 *names*))
+              (finishes (eval '(defun myfunc2 ())))
+              (is-true (member 'myfunc2 *names*))))
+        (remove-standard-hook 'defun 'store-name2 :before)
+        (is-false (member 'store-name2 (aspectm::symbol-before-hooks 'defun)))))))
 
 
