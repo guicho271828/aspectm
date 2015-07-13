@@ -2,16 +2,16 @@
 * Aspectm  - aspect-oriented macroexpand hooks
 
 =*macroexpand-hook*= in Common Lisp is quite hard to maintain correctly,
-since it is global and anyone can modify its value. This library provides a set of
-"acceptable" way of modifying the hook. The implementation is carefully
-written to provide a correct encapsulation.
+since it is global and anyone can modify its value. This library is an
+experimental attempt to provide a set of "acceptable" way of modifying the
+hook. Well, I feel, kind of defeated.
 
 AspectM provides CLOS-like /around/, /before/, /after/ hooks for
 macroexpansion, and I plan to implement useful hooks based upon this system.
 
 #+BEGIN_SRC lisp
 (enable-macroexpand-hooks)       ; enable around hooks, then
-(add-around-hook 'standard-hook) ; enable standard (=before+around) hook
+(add-around-hook 'standard-hook) ; register standard (=before+after) hook as an around hook
 
 ;; expanded before the main expansion, then prepended to the main expansion result
 (defmacro force-inline (&whole form name args &body body)
@@ -27,13 +27,9 @@ macroexpansion, and I plan to implement useful hooks based upon this system.
 ;; there are also with-standard-hook
 #+END_SRC
 
-Note: *ABOVE CODE DOES NOT WORK.*
+# Note: *ABOVE CODE DOES NOT WORK.*
 
-The scope of a hook is file local.
-This is achieved not by binding something, so it required a bit of hack.
-
-
-
+I want the scope of these hooks to be file local, but not sure how.
 
 # Sounds simple, but actually not. The main problem is about the invalidation
 # of the compilation results, and the scope of the hook.  What happends if we put a hook
@@ -45,41 +41,31 @@ This is achieved not by binding something, so it required a bit of hack.
 # 
 # The scope of a hook is package. Each enable-macroexpand-hooks remembers its 
 
-
 * Details
 
-/around/ hooks are always nested, just like nesting
-=*macroexpand-hook*= funtions. Notable difference is that 
+/around/ hooks are always nested, and I suppose this is the expected usage of
+=*macroexpand-hook*=. Notable difference is that 
 every /around/ hooks MUST call the next hook by calling =(call-next-hook)=,
 or it signals an compile-time error. This ensures that all hooks are called
 in the right order without skipping/overriding.
 
-# Upon this layered /around/ hooks system
-Upon this system, AspectM implements a set of hooks
-called /standard/ hooks, which consist of /before/ and /after/ hooks.
-# A before/around hook can be associated with a macro function,
-# and just like /before/ and /after/ methods in CLOS, it
-A before/around hook is able to:
+Based on this system, AspectM implements a set of hooks
+called /standard/ hooks, which consist of /before/ and /after/ hooks,
+just like /before/ and /after/ methods in CLOS.
+The functionalities of before/around hooks follow:
 
-+ see the arguments of the macro
-+ prepend/append forms to the main form returned by the macro
++ It can see the arguments of the macro.
++ It can prepend/append forms to the main form returned by the macro, each wrapped in progn.
++ However it cannot modify the main expansion result.
 
-Thus, they are not able to modify the main expansion result.
-Expected usecases are: exporting symbols, proclaim =inline=, or storing the
-form as a workaround for a system that does not provide
-=function-lambda-expression=.
-
-To activate this library, run these snippets:
-
-#+BEGIN_SRC lisp
-(enable-macroexpand-hooks)       ; enable around hooks, then
-(add-around-hook 'standard-hook) ; enable standard hook
-#+END_SRC
+Expected usecases: Side-effects upon expansion. E.g. exporting symbols,
+proclaim =inline=, or storing the form as a workaround for a system that
+does not provide =function-lambda-expression=.
 
 Unfortunately, =load= and =compile= does *not* rebind =*macroexpand-hook*=
 as they do for =*readtable*= and =*package*=. You are warned.
 
-** Setting a Standard Hook
+* Setting a Standard Hook
 
 /before/ and /after/ hooks are regular macro-functions of two arguments
 (the form and environment). The example code below automatically adds
@@ -95,7 +81,7 @@ as they do for =*readtable*= and =*package*=. You are warned.
 
 #+END_SRC
 
-** Dependencies
+* Dependencies
 
 This library is at least tested on implementation listed below:
 
