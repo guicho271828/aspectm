@@ -34,17 +34,26 @@
      (eval-when (:compile-toplevel)
        (when (null *compile-file-pathname*)
          (warn "Why *compile-file-pathname* is nil in compilation environment?"))
-       (bt:with-lock-held (*aspectm-lock*)
-         (psetf *macroexpand-hook* 'macroexpand-hooks-hook
-                *old-hook* *macroexpand-hook*
-                (gethash *compile-file-pathname* *pathnames*) t)))
+         (%enable-macroexpand-hooks))
      (eval-when (:load-toplevel :execute)
        (warn "ENABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
+
 (defmacro disable-macroexpand-hooks ()
   `(progn
      (eval-when (:compile-toplevel)
        (when (null *compile-file-pathname*)
          (warn "Why *compile-file-pathname* is nil in compilation environment?"))
+       (%disable-macroexpand-hooks))
+     (eval-when (:load-toplevel :execute)
+       (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
+
+(defun %enable-macroexpand-hooks ()
+  (bt:with-lock-held (*aspectm-lock*)
+    (psetf *macroexpand-hook* 'macroexpand-hooks-hook
+           *old-hook* *macroexpand-hook*
+           (gethash *compile-file-pathname* *pathnames*) t)))
+
+(defun %disable-macroexpand-hooks ()
        (bt:with-lock-held (*aspectm-lock*)
          (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
                  "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
@@ -54,9 +63,6 @@
          (setf *macroexpand-hook* *old-hook*
                (gethash *compile-file-pathname* *pathnames*) nil)
          (makunbound '*old-hook*)))
-     (eval-when (:load-toplevel :execute)
-       (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
-
 
 ;;; around-hooks
 
