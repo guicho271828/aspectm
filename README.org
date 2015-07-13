@@ -1,5 +1,5 @@
 
-* Aspectm  - aspect-oriented macroexpand hooks
+* Aspectm  - control macroexpand hooks
 
 =*macroexpand-hook*= in Common Lisp is quite hard to maintain correctly,
 since it is global and anyone can modify its value. This library is an
@@ -7,7 +7,7 @@ experimental attempt to provide a set of "acceptable" way of modifying the
 hook. Well, I feel, kind of defeated.
 
 AspectM provides CLOS-like /around/, /before/, /after/ hooks for
-macroexpansion, and I plan to implement useful hooks based upon this system.
+macroexpansion, and I planned to implement useful hooks based upon this system.
 
 #+BEGIN_SRC lisp
 (enable-macroexpand-hooks)       ; enable around hooks, then
@@ -30,6 +30,7 @@ macroexpansion, and I plan to implement useful hooks based upon this system.
 # Note: *ABOVE CODE DOES NOT WORK.*
 
 I want the scope of these hooks to be file local, but not sure how.
+This is the main reason I stopped the development.
 
 # Sounds simple, but actually not. The main problem is about the invalidation
 # of the compilation results, and the scope of the hook.  What happends if we put a hook
