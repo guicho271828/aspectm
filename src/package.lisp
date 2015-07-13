@@ -5,7 +5,7 @@
 
 (in-package :cl-user)
 (defpackage aspectm
-  (:use :cl :alexandria :lisp-namespace)
+  (:use :cl :alexandria)
   (:export
    #:enable-macroexpand-hooks
    #:disable-macroexpand-hooks
@@ -25,23 +25,37 @@
 
 ;;; enabling hooks
 
+(defvar *aspectm-lock* (bt:make-lock "Aspectm Lock"))
 (defvar *old-hook*)
 (defvar *pathnames* (make-hash-table :test 'equal)
   "hash-table of pathnames as keys and booleans as values. hmmmmm")
 (defmacro enable-macroexpand-hooks ()
-  `(eval-when (:compile-toplevel :execute)
-     (psetf *macroexpand-hook* 'macroexpand-hooks-hook
-            *old-hook* *macroexpand-hook*
-            (gethash *compile-file-pathname* *pathnames*) t)))
-(defun disable-macroexpand-hooks ()
-  `(eval-when (:compile-toplevel :execute)
-     (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
-             "*macroexpand-hook* is overwritten from ~a to ~a by some other program. stay alert!"
-             'macroexpand-hooks-hook
-             *macroexpand-hook*)
-     (setf *macroexpand-hook* *old-hook*
-           (gethash *compile-file-pathname* *pathnames*) nil)
-     (makunbound '*old-hook*)))
+  `(progn
+     (eval-when (:compile-toplevel)
+       (when (null *compile-file-pathname*)
+         (warn "Why *compile-file-pathname* is nil in compilation environment?"))
+       (bt:with-lock-held (*aspectm-lock*)
+         (psetf *macroexpand-hook* 'macroexpand-hooks-hook
+                *old-hook* *macroexpand-hook*
+                (gethash *compile-file-pathname* *pathnames*) t)))
+     (eval-when (:load-toplevel :execute)
+       (warn "ENABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
+(defmacro disable-macroexpand-hooks ()
+  `(progn
+     (eval-when (:compile-toplevel)
+       (when (null *compile-file-pathname*)
+         (warn "Why *compile-file-pathname* is nil in compilation environment?"))
+       (bt:with-lock-held (*aspectm-lock*)
+         (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
+                 "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
+ Compilation result of this file is INVALID. Stay alert!"
+                 'macroexpand-hooks-hook
+                 *macroexpand-hook*)
+         (setf *macroexpand-hook* *old-hook*
+               (gethash *compile-file-pathname* *pathnames*) nil)
+         (makunbound '*old-hook*)))
+     (eval-when (:load-toplevel :execute)
+       (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
 
 ;;; around-hooks
@@ -54,16 +68,22 @@
 (let (ahooks)
   (defun add-around-hook (fname)
     (assert (symbolp fname))
-    (push fname ahooks))
+    (with-lock-held (*aspectm-lock*)
+      (push fname ahooks)))
   (defun remove-around-hook (fname)
-    (removef ahooks fname))
+    (with-lock-held (*aspectm-lock*)
+      (removef ahooks fname)))
   (defun around-hooks ()
+    "Returns a copy of around-hooks as a flesh list. It is safe to modify this value."
     (copy-list ahooks))
   (defun macroexpand-hooks-hook (macrofn form env)
     (declare (special macrofn form env))
-    (let ((ahooks ahooks))
-      (declare (special ahooks))
-      (call-next-hook)))
+    (if (and *compile-file-pathname*
+             (gethash *compile-file-pathname* *pathnames*))
+        (let ((ahooks ahooks))
+          (declare (special ahooks))
+          (call-next-hook))
+        (funcall-as-hook macrofn form env)))
   (defun call-next-hook ()
     (declare (special macrofn form env ahooks))
     (restart-case
@@ -74,11 +94,12 @@
         (destructuring-bind (first-hook . ahooks) ahooks
           (declare (special ahooks))
           (let (next-hook-called)
-            (prog1
-              (handler-bind ((in-next-hook (lambda (c)
-                                             (setf next-hook-called t)
-                                             (continue c))))
-                (funcall first-hook macrofn form env))
+            (unwind-protect
+                (handler-bind ((in-next-hook (lambda (c)
+                                               (setf next-hook-called t)
+                                               (continue c))))
+                  ;; first-hook should also call call-next-hook
+                  (funcall first-hook macrofn form env))
               (unless next-hook-called
                 (error "~a is not calling the next hook through call-next-hook!" first-hook)))))
         (funcall-as-hook macrofn form env))))
@@ -87,7 +108,7 @@
   (restart-case
       (signal 'in-next-hook)
     (continue ()))
-  (funcall macrofn form env))
+  (funcall *old-hook* macrofn form env))
 
 
 ;;; standard hooks
@@ -109,6 +130,7 @@
                     (mapcar #'call-hook hooks))))
       (if (or (some #'identity befores)
               (some #'identity afters))
+          ;; to stop messing up the compilation result of no hooks are present
           `(progn ,@befores ,main ,@afters)
           main))))
 

@@ -22,7 +22,7 @@
   :author "Masataro Asai"
   :mailto "guicho2.71828@gmail.com"
   :license "LLGPL"
-  :depends-on (:alexandria  :lisp-namespace)
+  :depends-on (:alexandria  :lisp-namespace :bordeaux-threads)
   :components ((:module "src"
                 :components
                 ((:file "package"))))
