@@ -27,13 +27,14 @@
 
 (defvar *aspectm-lock* (bt:make-lock "Aspectm Lock"))
 (defvar *old-hook*)
-(defvar *pathnames* (make-hash-table :test 'equal)
-  "hash-table of pathnames as keys and booleans as values. hmmmmm")
+(defvar *recent-pathname* nil
+  "remembers the most recent *compile-file-pathname* to detect the change of context ---
+ holy crap that I can't safely bind it around compilation.
+ This is set by %enable-macroexpand-hooks.")
+
 (defmacro enable-macroexpand-hooks ()
   `(progn
      (eval-when (:compile-toplevel)
-       (when (null *compile-file-pathname*)
-         (warn "Why *compile-file-pathname* is nil in compilation environment?"))
          (%enable-macroexpand-hooks))
      (eval-when (:load-toplevel :execute)
        (warn "ENABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
@@ -41,19 +42,19 @@
 (defmacro disable-macroexpand-hooks ()
   `(progn
      (eval-when (:compile-toplevel)
-       (when (null *compile-file-pathname*)
-         (warn "Why *compile-file-pathname* is nil in compilation environment?"))
        (%disable-macroexpand-hooks))
      (eval-when (:load-toplevel :execute)
        (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
 (defun %enable-macroexpand-hooks ()
+  (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
   (bt:with-lock-held (*aspectm-lock*)
     (psetf *macroexpand-hook* 'macroexpand-hooks-hook
            *old-hook* *macroexpand-hook*
-           (gethash *compile-file-pathname* *pathnames*) t)))
+           *recent-pathname* *compile-file-pathname*)))
 
 (defun %disable-macroexpand-hooks ()
+  (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
        (bt:with-lock-held (*aspectm-lock*)
          (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
                  "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
@@ -61,7 +62,7 @@
                  'macroexpand-hooks-hook
                  *macroexpand-hook*)
          (setf *macroexpand-hook* *old-hook*
-               (gethash *compile-file-pathname* *pathnames*) nil)
+          *recent-pathname* nil)
          (makunbound '*old-hook*)))
 
 ;;; around-hooks
@@ -87,12 +88,16 @@
     (copy-list ahooks))
   (defun macroexpand-hooks-hook (macrofn form env)
     (declare (special macrofn form env))
-    (if (and *compile-file-pathname*
-             (gethash *compile-file-pathname* *pathnames*))
+    (if (equal *compile-file-pathname* *recent-pathname*)
         (let ((ahooks ahooks))
           (declare (special ahooks))
           (call-next-hook))
-        (funcall-as-hook macrofn form env)))
+        (unwind-protect
+            ;; If moved to the other file, disable it.
+            ;; FIXME: it is very awkward that it still refers to *old-hook*
+            ;; before disabling it.
+            (funcall *old-hook* macrofn form env)
+          (%disable-macroexpand-hooks))))
   (defun call-next-hook ()
     (declare (special macrofn form env ahooks))
     (restart-case
