@@ -35,7 +35,7 @@
 (defmacro enable-macroexpand-hooks ()
   `(progn
      (eval-when (:compile-toplevel)
-         (%enable-macroexpand-hooks))
+       (%enable-macroexpand-hooks))
      (eval-when (:load-toplevel :execute)
        (warn "ENABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
@@ -55,15 +55,15 @@
 
 (defun %disable-macroexpand-hooks ()
   (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
-       (bt:with-lock-held (*aspectm-lock*)
-         (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
-                 "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
+  (bt:with-lock-held (*aspectm-lock*)
+    (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
+            "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
  Compilation result of this file is INVALID. Stay alert!"
-                 'macroexpand-hooks-hook
-                 *macroexpand-hook*)
-         (setf *macroexpand-hook* *old-hook*
+            'macroexpand-hooks-hook
+            *macroexpand-hook*)
+    (setf *macroexpand-hook* *old-hook*
           *recent-pathname* nil)
-         (makunbound '*old-hook*)))
+    (makunbound '*old-hook*)))
 
 ;;; around-hooks
 
@@ -75,13 +75,13 @@
 (let (ahooks)
   (defun add-around-hook (fname)
     (assert (symbolp fname))
-    (with-lock-held (*aspectm-lock*)
+    (bt:with-lock-held (*aspectm-lock*)
       (push fname ahooks)))
   (defun remove-around-hook (fname)
-    (with-lock-held (*aspectm-lock*)
+    (bt:with-lock-held (*aspectm-lock*)
       (removef ahooks fname)))
   (defun clear-around-hooks (fname)
-    (with-lock-held (*aspectm-lock*)
+    (bt:with-lock-held (*aspectm-lock*)
       (setf ahooks nil)))
   (defun around-hooks ()
     "Returns a copy of around-hooks as a flesh list. It is safe to modify this value."
