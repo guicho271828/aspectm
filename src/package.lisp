@@ -20,13 +20,15 @@
    #:define-standard-hook
    #:remove-standard-hook
    #:around-hooks
-   #:with-standard-hook))
+   #:with-standard-hook
+   #:do-enable-macroexpand-hooks
+   #:do-disable-macroexpand-hooks))
 (in-package :aspectm)
 
 ;;; enabling hooks
 
 (defvar *aspectm-lock* (bt:make-lock "Aspectm Lock"))
-(defvar *old-hook*)
+(defvar *old-hook* nil)
 (defvar *recent-pathname* nil
   "remembers the most recent *compile-file-pathname* to detect the change of context ---
  holy crap that I can't safely bind it around compilation.
@@ -35,25 +37,25 @@
 (defmacro enable-macroexpand-hooks ()
   `(progn
      (eval-when (:compile-toplevel)
-       (%enable-macroexpand-hooks))
+       (do-enable-macroexpand-hooks))
      (eval-when (:load-toplevel :execute)
        (warn "ENABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
 (defmacro disable-macroexpand-hooks ()
   `(progn
      (eval-when (:compile-toplevel)
-       (%disable-macroexpand-hooks))
+       (do-disable-macroexpand-hooks))
      (eval-when (:load-toplevel :execute)
        (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
-(defun %enable-macroexpand-hooks ()
+(defun do-enable-macroexpand-hooks ()
   (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
   (bt:with-lock-held (*aspectm-lock*)
     (psetf *macroexpand-hook* 'macroexpand-hooks-hook
            *old-hook* *macroexpand-hook*
            *recent-pathname* *compile-file-pathname*)))
 
-(defun %disable-macroexpand-hooks ()
+(defun do-disable-macroexpand-hooks ()
   (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
   (bt:with-lock-held (*aspectm-lock*)
     (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
@@ -61,9 +63,9 @@
  Compilation result of this file is INVALID. Stay alert!"
             'macroexpand-hooks-hook
             *macroexpand-hook*)
-    (setf *macroexpand-hook* *old-hook*
-          *recent-pathname* nil)
-    (makunbound '*old-hook*)))
+    (psetf *macroexpand-hook* *old-hook*
+           *old-hook* nil
+           *recent-pathname* nil)))
 
 ;;; around-hooks
 
@@ -97,7 +99,7 @@
             ;; FIXME: it is very awkward that it still refers to *old-hook*
             ;; before disabling it.
             (funcall *old-hook* macrofn form env)
-          (%disable-macroexpand-hooks))))
+          (do-disable-macroexpand-hooks))))
   (defun call-next-hook ()
     (declare (special macrofn form env ahooks))
     (restart-case
