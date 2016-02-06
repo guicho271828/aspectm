@@ -150,7 +150,12 @@
           `(progn ,@befores ,main ,@afters)
           main))))
 
-(defun set-standard-hook (name hook &optional (method :before))
+(defmacro set-standard-hook (&whole whole name hook &optional (method :before))
+  (declare (ignorable name hook method))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (do-set-standard-hook ,@(cdr whole))))
+
+(defun do-set-standard-hook (name hook &optional (method :before))
   (assert (member method '(:before :after)))
   (if (eq :before method)
       (progn
@@ -163,17 +168,24 @@
         (pushnew hook (symbol-after-hooks name))))
   hook)
 
+(defmacro remove-standard-hook (&whole whole name hook &optional (method :before))
+  (declare (ignorable name hook method))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (do-remove-standard-hook ,@(cdr whole))))
+
+(defun do-remove-standard-hook (name hook method)
+  (assert (member method '(:before :after)))
+  (if (eq :before method)
+      (when (before-hooks-boundp name)
+        (removef (symbol-before-hooks name) hook))
+      (when (before-hooks-boundp name)
+        (removef (symbol-after-hooks name) hook))))
+
 (defmacro define-standard-hook ((name &optional hook-name (method :before)) args &body body)
   (let ((hook-name (or hook-name (gensym "HOOK"))))
     `(progn
        (defmacro ,hook-name ,args ,@body)
        (set-standard-hook ',name ',hook-name ,method))))
-
-(defun remove-standard-hook (name hook method)
-  (assert (member method '(:before :after)))
-  (if (eq :before method)
-      (removef (symbol-before-hooks name) hook)
-      (removef (symbol-after-hooks name) hook)))
 
 (defmacro with-standard-hook (name hook method &body body)
   (unwind-protect
