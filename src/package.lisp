@@ -49,14 +49,14 @@
        (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
 (defun do-enable-macroexpand-hooks ()
-  (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
+  (assert (pathnamep *compile-file-pathname*) nil "not inside compilation environment")
   (bt:with-lock-held (*aspectm-lock*)
     (psetf *macroexpand-hook* 'macroexpand-hooks-hook
            *old-hook* *macroexpand-hook*
            *recent-pathname* *compile-file-pathname*)))
 
 (defun do-disable-macroexpand-hooks ()
-  (assert (pathnamep *compile-file-pathname*) nil "*compile-file-pathname* is nil")
+  (assert (pathnamep *compile-file-pathname*) nil "not inside compilation environment")
   (bt:with-lock-held (*aspectm-lock*)
     (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
             "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
