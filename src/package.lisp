@@ -82,7 +82,7 @@
   (defun remove-around-hook (fname)
     (bt:with-lock-held (*aspectm-lock*)
       (removef ahooks fname)))
-  (defun clear-around-hooks (fname)
+  (defun clear-around-hooks ()
     (bt:with-lock-held (*aspectm-lock*)
       (setf ahooks nil)))
   (defun around-hooks ()
