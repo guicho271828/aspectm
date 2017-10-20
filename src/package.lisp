@@ -28,18 +28,7 @@
 ;;; enabling hooks
 
 (defvar *aspectm-lock* (bt:make-lock "Aspectm Lock"))
-(defvar *old-hook* nil)
-(defvar *recent-pathname* nil
-  "remembers the most recent *compile-file-pathname* to detect the change of context ---
- holy crap that I can't safely bind it around compilation.
- This is set by %enable-macroexpand-hooks.")
-
-(defmacro enable-macroexpand-hooks ()
-  `(progn
-     (eval-when (:compile-toplevel)
-       (do-enable-macroexpand-hooks))
-     (eval-when (:load-toplevel :execute)
-       (warn "ENABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
+(defvar *old-hooks* nil)
 
 (defmacro disable-macroexpand-hooks ()
   `(progn
@@ -48,24 +37,20 @@
      (eval-when (:load-toplevel :execute)
        (warn "DISABLE-MACROEXPAND-HOOKS does not take effect outside COMPILATION-ENVIRONMENT."))))
 
-(defun do-enable-macroexpand-hooks ()
-  (assert (pathnamep *compile-file-pathname*) nil "not inside compilation environment")
+(defun ensure-macroexpand-hooks ()
   (bt:with-lock-held (*aspectm-lock*)
-    (psetf *macroexpand-hook* 'macroexpand-hooks-hook
-           *old-hook* *macroexpand-hook*
-           *recent-pathname* *compile-file-pathname*)))
+    (push *macroexpand-hook* *old-hooks*)
+    (setf *macroexpand-hook* 'macroexpand-hooks-hook)))
 
 (defun do-disable-macroexpand-hooks ()
-  (assert (pathnamep *compile-file-pathname*) nil "not inside compilation environment")
   (bt:with-lock-held (*aspectm-lock*)
     (assert (eq *macroexpand-hook* 'macroexpand-hooks-hook) nil
             "*macroexpand-hook* is overwritten from ~a to ~a by some other program.
  Compilation result of this file is INVALID. Stay alert!"
             'macroexpand-hooks-hook
             *macroexpand-hook*)
-    (psetf *macroexpand-hook* *old-hook*
-           *old-hook* nil
-           *recent-pathname* nil)))
+    (setf *macroexpand-hook*
+          (pop *old-hooks*))))
 
 ;;; around-hooks
 
@@ -77,6 +62,8 @@
 (let (ahooks)
   (defun add-around-hook (fname)
     (assert (symbolp fname))
+    (unless *old-hook*
+      (do-enable-macroexpand-hooks))
     (bt:with-lock-held (*aspectm-lock*)
       (push fname ahooks)))
   (defun remove-around-hook (fname)
@@ -157,6 +144,8 @@
 
 (defun do-set-standard-hook (name hook &optional (method :before))
   (assert (member method '(:before :after)))
+  (unless (member 'standard-hook (around-hooks))
+    (add-around-hook 'standard-hook))
   (if (eq :before method)
       (progn
         (unless (before-hooks-boundp name)
@@ -175,6 +164,8 @@
 
 (defun do-remove-standard-hook (name hook method)
   (assert (member method '(:before :after)))
+  (unless (member 'standard-hook (around-hooks))
+    (add-around-hook 'standard-hook))
   (if (eq :before method)
       (when (before-hooks-boundp name)
         (removef (symbol-before-hooks name) hook))
